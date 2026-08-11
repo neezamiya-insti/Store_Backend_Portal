@@ -1,54 +1,719 @@
 'use client'
 
 import Link from 'next/link'
-import { Shield, Package, LayoutDashboard, ArrowRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Shield,
+  Package,
+  LayoutDashboard,
+  ArrowRight,
+  FolderOpen,
+  Layers,
+  Tag,
+  Send,
+  Boxes,
+  ShieldCheck,
+  RefreshCw,
+  ListChecks,
+  Lock,
+  Clock,
+  Sparkles,
+} from 'lucide-react'
+
+const STATS = [
+  { value: '100%', label: 'Bilingual by default' },
+  { value: '3', label: 'Content modules' },
+  { value: '24/7', label: 'Secure access' },
+]
+
+const PETALS = [
+  { id: '01', icon: Package, title: 'Add Products', color: '#f5a524' },
+  { id: '02', icon: FolderOpen, title: 'Organize Categories', color: '#22c55e' },
+  { id: '03', icon: Layers, title: 'Manage Inventory', color: '#38bdf8' },
+  { id: '04', icon: Tag, title: 'Set Pricing', color: '#d946ef' },
+  { id: '05', icon: Send, title: 'Publish & Sync', color: '#f43f5e' },
+]
+
+const LEFT_CALLOUTS = [
+  { icon: Boxes, title: 'Smart Categories', desc: 'Group your products with custom filters and layouts.' },
+  { icon: FolderOpen, title: 'Easy Browsing', desc: 'Help users find what they need, faster.' },
+  { icon: ListChecks, title: 'Structured Flow', desc: 'Keep your catalogue clean and organized.' },
+]
+
+const RIGHT_CALLOUTS = [
+  { icon: Layers, title: 'Multi-Platform', desc: 'Publish and sync your catalogue across all platforms.' },
+  { icon: RefreshCw, title: 'Instant Sync', desc: 'Real-time updates everywhere.' },
+  { icon: Send, title: 'Wider Reach', desc: 'Reach more customers with perfect control.' },
+]
+
+const TRUST_ROW = [
+  { icon: ShieldCheck, title: 'Real-time Updates', desc: 'See changes instantly across your system.' },
+  { icon: Lock, title: 'Secure & Reliable', desc: 'Your data is safe with enterprise-grade security.' },
+  { icon: Clock, title: '24/7 Access', desc: 'Manage your catalogue anytime, anywhere.' },
+]
+
+const RING_CX = 210
+const RING_CY = 210
+const RING_INNER = 92
+const RING_OUTER = 198
+const SEG_ANGLE = 54
+const SEG_PAD = 1.8
+const SEGMENT_ANGLES = [0, -54, -108, 54, 108]
+
+function polarPoint(r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180
+  return {
+    x: RING_CX + r * Math.sin(rad),
+    y: RING_CY - r * Math.cos(rad),
+  }
+}
+
+function annulusSectorPath(rIn, rOut, startAngle, endAngle) {
+  const p1 = polarPoint(rOut, startAngle)
+  const p2 = polarPoint(rOut, endAngle)
+  const p3 = polarPoint(rIn, endAngle)
+  const p4 = polarPoint(rIn, startAngle)
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+  return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
+}
+
+function RingSegments({ hoveredIdx }) {
+  return (
+    <svg viewBox="0 0 420 420" className="absolute inset-0 h-full w-full pointer-events-none">
+      <defs>
+        {PETALS.map((petal, i) => (
+          <linearGradient
+            key={petal.id}
+            id={`ring-grad-${i}`}
+            x1="0"
+            y1="1"
+            x2="0"
+            y2="0"
+            gradientUnits="objectBoundingBox"
+          >
+            <stop offset="0%" stopColor={petal.color} stopOpacity="0.07" />
+            <stop offset="100%" stopColor={petal.color} stopOpacity="0.30" />
+          </linearGradient>
+        ))}
+        {PETALS.map((petal, i) => (
+          <filter key={`glow-${i}`} id={`seg-glow-${i}`} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        ))}
+      </defs>
+      {PETALS.map((petal, i) => {
+        const center = SEGMENT_ANGLES[i]
+        const start = center - SEG_ANGLE / 2 + SEG_PAD
+        const end = center + SEG_ANGLE / 2 - SEG_PAD
+        const isHovered = hoveredIdx === i
+        return (
+          <path
+            key={petal.id}
+            d={annulusSectorPath(RING_INNER, RING_OUTER, start, end)}
+            fill={`url(#ring-grad-${i})`}
+            stroke={petal.color}
+            strokeOpacity={isHovered ? 1 : 0.55}
+            strokeWidth={isHovered ? 2 : 1.5}
+            filter={isHovered ? `url(#seg-glow-${i})` : undefined}
+            className="ring-segment"
+            style={{
+              animationDelay: `${i * 90}ms`,
+              '--segment-color': petal.color,
+              transition: 'stroke-opacity 0.3s ease, stroke-width 0.3s ease',
+            }}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+function RingContent({ onHover }) {
+  const positions = [
+    { number: { r: 182, angle: 0 }, icon: { r: 155, angle: 0 }, label: { r: 118, angle: 0 } },
+    { number: { r: 178, angle: -54 }, icon: { r: 147, angle: -50 }, label: { r: 128, angle: -67 } },
+    { number: { r: 178, angle: -91 }, icon: { r: 138, angle: -101 }, label: { r: 148, angle: -118 } },
+    { number: { r: 178, angle: 44 }, icon: { r: 149, angle: 54 }, label: { r: 138, angle: 67 } },
+    { number: { r: 178, angle: 92 }, icon: { r: 142, angle: 99 }, label: { r: 152, angle: 114 } },
+  ]
+
+  return (
+    <>
+      {PETALS.map((petal, i) => {
+        const Icon = petal.icon
+        const pos = positions[i]
+        const numberPt = polarPoint(pos.number.r, pos.number.angle)
+        const iconPt = polarPoint(pos.icon.r, pos.icon.angle)
+        const labelPt = polarPoint(pos.label.r, pos.label.angle)
+        const delay = `${180 + i * 80}ms`
+
+        return (
+          <div
+            key={petal.id}
+            className="segment-group"
+            onMouseEnter={() => onHover(i)}
+            onMouseLeave={() => onHover(null)}
+            style={{ '--seg-color': petal.color }}
+          >
+            {/* Number */}
+            <span
+              className="absolute -translate-x-1/2 -translate-y-1/2 text-[11px] font-bold tracking-wider ring-pop segment-number"
+              style={{ left: numberPt.x, top: numberPt.y, color: petal.color, animationDelay: delay }}
+            >
+              {petal.id}
+            </span>
+
+            {/* Icon circle */}
+            <div
+              className="ring-icon absolute -translate-x-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border ring-pop segment-icon"
+              style={{
+                left: iconPt.x,
+                top: iconPt.y,
+                borderColor: petal.color,
+                backgroundColor: `${petal.color}18`,
+                '--icon-color': petal.color,
+                animationDelay: delay,
+              }}
+            >
+              <Icon className="h-4 w-4" style={{ color: petal.color }} />
+            </div>
+
+            {/* Label */}
+            <span
+              className="absolute -translate-x-1/2 -translate-y-1/2 text-center text-[11px] font-semibold leading-tight text-white ring-pop segment-label"
+              style={{ left: labelPt.x, top: labelPt.y, width: 90, maxWidth: 90, animationDelay: delay }}
+            >
+              {petal.title}
+            </span>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function SideCallout({ item, side, index }) {
+  const Icon = item.icon
+  return (
+    <div
+      className={`side-callout relative flex items-center gap-3 ${side === 'right' ? 'flex-row-reverse text-right' : ''}`}
+      style={{ animationDelay: `${index * 140}ms` }}
+    >
+      <div className="callout-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-slate-900/70">
+        <Icon className="h-4 w-4 text-amber-400" />
+      </div>
+      <div className={side === 'right' ? 'text-right' : ''}>
+        <p className="text-sm font-bold text-white">{item.title}</p>
+        <p className="text-xs text-slate-400 max-w-[190px] leading-relaxed">{item.desc}</p>
+      </div>
+    </div>
+  )
+}
+
+function SideConnector({ side }) {
+  const isLeft = side === 'left'
+  const SVG_W = 97
+  const circleX = isLeft ? SVG_W : 0
+  const spineX = isLeft ? 48 : SVG_W - 48
+  const itemsX = isLeft ? 0 : SVG_W
+  const uid = side
+
+  const d = [
+    `M${circleX} 210 H${spineX}`,
+    `M${spineX} 40 V380`,
+    `M${spineX} 40 H${itemsX}`,
+    `M${spineX} 210 H${itemsX}`,
+    `M${spineX} 380 H${itemsX}`,
+  ].join(' ')
+
+  const loopPath = `M${circleX} 210 L${spineX} 210 L${spineX} 40 L${itemsX} 40`
+
+  return (
+    <svg
+      className={`hidden lg:block absolute top-0 h-full pointer-events-none side-connector ${
+        isLeft ? 'right-0' : 'left-0'
+      }`}
+      style={{ width: SVG_W }}
+      viewBox={`0 0 ${SVG_W} 420`}
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <path id={`dp-loop-${uid}`} d={loopPath} fill="none" />
+      </defs>
+
+      <path
+        d={d}
+        fill="none"
+        stroke="#f5a524"
+        strokeOpacity="0.5"
+        strokeWidth="1.5"
+        className="connector-path"
+      />
+
+      <circle r="2.6" fill="#fcd34d" className="travel-dot">
+        <animateMotion
+          dur="3s"
+          begin="1.3s"
+          repeatCount="indefinite"
+          keyPoints="0;1"
+          keyTimes="0;1"
+          calcMode="linear"
+        >
+          <mpath href={`#dp-loop-${uid}`} />
+        </animateMotion>
+      </circle>
+    </svg>
+  )
+}
+
+function RadialHub() {
+  const [visible, setVisible] = useState(false)
+  const [hoveredSegment, setHoveredSegment] = useState(null)
+  const sectionRef = useRef(null)
+
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.15 }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <section ref={sectionRef} className={`px-6 pb-16 feature-section ${visible ? 'is-visible' : ''}`}>
+      <div className="max-w-6xl mx-auto">
+        {/* Desktop */}
+        <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+          <div className="relative h-[420px] flex flex-col justify-between pr-14">
+            <SideConnector side="left" />
+            {LEFT_CALLOUTS.map((item, i) => (
+              <SideCallout key={item.title} item={item} side="left" index={i} />
+            ))}
+          </div>
+
+          <div className="relative h-[420px] w-[420px] mx-auto">
+            <RingSegments hoveredIdx={hoveredSegment} />
+            <RingContent onHover={setHoveredSegment} />
+
+            <div className="center-hub absolute left-1/2 top-1/2 h-[156px] w-[156px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-500/50 bg-slate-950 flex flex-col items-center justify-center gap-1 z-20">
+              <div className="center-icon flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/50 bg-amber-500/10">
+                <Package className="h-5 w-5 text-amber-400" />
+              </div>
+              <span className="text-sm font-bold text-white">Your Catalogue</span>
+              <span className="text-[10px] text-slate-500">Full control. Real-time.</span>
+            </div>
+          </div>
+
+          <div className="relative h-[420px] flex flex-col justify-between pl-14">
+            <SideConnector side="right" />
+            {RIGHT_CALLOUTS.map((item, i) => (
+              <SideCallout key={item.title} item={item} side="right" index={i} />
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile fallback */}
+        <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {PETALS.map((petal) => {
+            const Icon = petal.icon
+            return (
+              <div
+                key={petal.id}
+                className="rounded-2xl border p-5 bg-slate-900/50"
+                style={{ borderColor: `${petal.color}55` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-full border"
+                    style={{ borderColor: petal.color, backgroundColor: `${petal.color}1a` }}
+                  >
+                    <Icon className="h-4 w-4" style={{ color: petal.color }} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-wider" style={{ color: petal.color }}>
+                      {petal.id}
+                    </span>
+                    <p className="text-sm font-bold text-white">{petal.title}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {[...LEFT_CALLOUTS, ...RIGHT_CALLOUTS].map((item) => (
+            <div key={item.title} className="rounded-2xl border border-white/10 p-5 bg-slate-900/40 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-slate-900/70">
+                <item.icon className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">{item.title}</p>
+                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Trust row */}
+        <div className="relative mt-10 lg:mt-4 pt-4">
+          <svg
+            className="hidden lg:block absolute left-1/2 -translate-x-1/2 bottom-stem"
+            style={{ top: -180 }}
+            width="480"
+            height="200"
+            viewBox="0 0 480 200"
+          >
+            <defs>
+              <path id="dp-bottom-left" d="M240 0 L240 160 L80 160 L80 190" fill="none" />
+              <path id="dp-bottom-mid" d="M240 0 L240 190" fill="none" />
+              <path id="dp-bottom-right" d="M240 0 L240 160 L400 160 L400 190" fill="none" />
+            </defs>
+
+            <path
+              d="M240 0 V160
+                 M240 160 H80
+                 M240 160 H400
+                 M80 160 V190
+                 M240 160 V190
+                 M400 160 V190"
+              fill="none"
+              stroke="#f5a524"
+              strokeOpacity="0.5"
+              strokeWidth="1.5"
+              className="connector-path"
+            />
+
+            {['dp-bottom-left', 'dp-bottom-mid', 'dp-bottom-right'].map((id, i) => (
+              <circle key={id} r="2.6" fill="#fcd34d" className="travel-dot">
+                <animateMotion
+                  dur="2.8s"
+                  begin={`${2.2 + i * 0.9}s`}
+                  repeatCount="indefinite"
+                  keyPoints="0;1"
+                  keyTimes="0;1"
+                  calcMode="linear"
+                >
+                  <mpath href={`#${id}`} />
+                </animateMotion>
+              </circle>
+            ))}
+          </svg>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto pt-2">
+            {TRUST_ROW.map((item, i) => {
+              const Icon = item.icon
+              return (
+                <div
+                  key={item.title}
+                  className="trust-item flex flex-col items-center text-center gap-2"
+                  style={{ animationDelay: `${420 + i * 110}ms` }}
+                >
+                  <div className="trust-icon flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/50 bg-slate-900/70">
+                    <Icon className="h-4 w-4 text-amber-400" />
+                  </div>
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  <p className="text-xs text-slate-400 leading-relaxed max-w-[180px]">{item.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ========== ANIMATIONS ========== */}
+      <style jsx>{`
+        /* Section entrance: slides up + fades when scrolled into view */
+        .feature-section {
+          opacity: 0;
+          transform: translateY(40px);
+          transition:
+            opacity 1.1s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .feature-section.is-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        /* Ring segments scale in from center */
+        .ring-segment {
+          opacity: 0;
+          transform-origin: 210px 210px;
+          transform: scale(0.7);
+          filter: drop-shadow(0 0 6px var(--segment-color));
+          transition:
+            opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+            filter 0.3s ease,
+            stroke-opacity 0.3s ease;
+        }
+        .feature-section.is-visible .ring-segment {
+          opacity: 1;
+          transform: scale(1);
+        }
+
+        /* Segment group hover: glow icon + number + label */
+        .segment-group {
+          position: contents;
+        }
+        .segment-group:hover .segment-icon {
+          box-shadow:
+            0 0 0 2px var(--seg-color),
+            0 0 22px var(--seg-color),
+            0 0 44px color-mix(in srgb, var(--seg-color) 60%, transparent);
+          border-color: var(--seg-color) !important;
+          transform: translate(-50%, -50%) scale(1.22);
+        }
+        .segment-group:hover .segment-number {
+          text-shadow:
+            0 0 8px var(--seg-color),
+            0 0 20px var(--seg-color);
+          filter: brightness(1.4);
+        }
+        .segment-group:hover .segment-label {
+          text-shadow: 0 0 10px var(--seg-color);
+          color: #ffffff;
+          filter: brightness(1.3);
+        }
+
+        /* Number / icon / label pop animation */
+        .ring-pop {
+          opacity: 0;
+          animation: ringPop 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation-play-state: paused;
+        }
+        .feature-section.is-visible .ring-pop {
+          animation-play-state: running;
+        }
+        @keyframes ringPop {
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+          70%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Icon circle base glow + smooth transition */
+        .ring-icon {
+          transition:
+            box-shadow 0.3s ease,
+            border-color 0.3s ease,
+            transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+          box-shadow: 0 0 8px var(--icon-color);
+        }
+
+        /* Centre hub pulse */
+        .center-hub {
+          box-shadow: 0 0 36px rgba(245, 165, 36, 0.28);
+          transition:
+            transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.4s ease;
+          animation: hubPulse 3.2s ease-in-out infinite;
+        }
+        .center-hub:hover {
+          transform: translate(-50%, -50%) scale(1.07);
+          box-shadow: 0 0 70px rgba(245, 165, 36, 0.65);
+        }
+        .center-hub:hover .center-icon {
+          box-shadow: 0 0 24px rgba(245, 165, 36, 0.65);
+          border-color: rgba(245, 165, 36, 0.95);
+        }
+        @keyframes hubPulse {
+          0%, 100% { box-shadow: 0 0 36px rgba(245, 165, 36, 0.28); }
+          50%       { box-shadow: 0 0 60px rgba(245, 165, 36, 0.48); }
+        }
+
+        /* Side callouts slide up */
+        .side-callout {
+          opacity: 0;
+          transform: translateY(18px);
+          transition:
+            opacity 0.6s ease-out,
+            transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .feature-section.is-visible .side-callout {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .callout-icon {
+          transition:
+            transform 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+          box-shadow: 0 0 8px rgba(245, 165, 36, 0.22);
+        }
+        .callout-icon:hover {
+          transform: scale(1.16);
+          border-color: rgba(245, 165, 36, 0.95);
+          box-shadow:
+            0 0 18px rgba(245, 165, 36, 0.55),
+            0 0 36px rgba(245, 165, 36, 0.25);
+        }
+
+        /* Trust row slides up */
+        .trust-item {
+          opacity: 0;
+          transform: translateY(16px);
+          transition:
+            opacity 0.55s ease-out,
+            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .feature-section.is-visible .trust-item {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .trust-icon {
+          transition:
+            transform 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+          box-shadow: 0 0 8px rgba(245, 165, 36, 0.22);
+        }
+        .trust-icon:hover {
+          transform: scale(1.16);
+          border-color: rgba(245, 165, 36, 0.95);
+          box-shadow:
+            0 0 18px rgba(245, 165, 36, 0.55),
+            0 0 36px rgba(245, 165, 36, 0.25);
+        }
+
+        /* Connector lines draw in */
+        .connector-path {
+          stroke-dasharray: 900;
+          stroke-dashoffset: 900;
+          transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1) 0.3s;
+        }
+        .feature-section.is-visible .connector-path {
+          stroke-dashoffset: 0;
+        }
+
+        /* Single traveling dot */
+        .travel-dot {
+          filter: drop-shadow(0 0 4px #fcd34d) drop-shadow(0 0 9px rgba(245, 165, 36, 0.7));
+          opacity: 0;
+          transition: opacity 0.4s ease 1.2s;
+        }
+        .feature-section.is-visible .travel-dot {
+          opacity: 1;
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+          .feature-section,
+          .ring-segment,
+          .ring-pop,
+          .side-callout,
+          .trust-item,
+          .connector-path,
+          .center-hub,
+          .ring-icon,
+          .callout-icon,
+          .trust-icon,
+          .travel-dot {
+            transition: none !important;
+            animation: none !important;
+            opacity: 1 !important;
+            transform: translate(-50%, -50%) !important;
+            stroke-dashoffset: 0 !important;
+            filter: none !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
+    </section>
+  )
+}
 
 export default function PortalLanding() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 text-white flex flex-col">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-amber-400" />
-          <span className="font-semibold tracking-wide">Rua Sadiq Portal</span>
-        </div>
-        <Link
-          href="/login"
-          className="text-sm px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition"
-        >
-          Sign in
-        </Link>
-      </header>
+    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+<div className="pointer-events-none fixed inset-0">
+  {/* only keep the subtle grid – no colored blobs */}
+  <div
+    className="absolute inset-0 opacity-[0.04]"
+    style={{
+      backgroundImage:
+        'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
+      backgroundSize: '56px 56px',
+    }}
+  />
+</div>
 
-      <main className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="max-w-2xl text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-wider">
-            <Package className="h-3.5 w-3.5" />
-            Product Management System
+      <div className="relative flex flex-col min-h-screen">
+        <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Shield className="h-6 w-6 text-amber-400" />
+              <span className="absolute inset-0 -z-10 blur-md bg-amber-400/40 animate-pulse-slow rounded-full" />
+            </div>
+            <span className="font-semibold tracking-wide">Portal</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
-            Manage your catalogue with
-            <span className="block text-amber-400">speed & control</span>
-          </h1>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">
-            Create, edit, and delete products. Upload images, update prices and details — all from a
-            single secure dashboard built for Rua Sadiq Trading.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm hover:bg-amber-400 transition shadow-lg shadow-amber-500/20"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Go to Dashboard
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </main>
+          <Link
+            href="/login"
+            className="text-sm px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition hover:shadow-lg hover:shadow-amber-500/20"
+          >
+            Sign in
+          </Link>
+        </header>
 
-      <footer className="text-center text-xs text-slate-500 py-6 border-t border-white/5">
-        Rua Sadiq Trading · Admin Portal
-      </footer>
+        <main className="flex-1 flex items-center justify-center px-6 py-20">
+          <div className="max-w-2xl text-center space-y-8 animate-fade-in-up">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-wider">
+              <Sparkles className="h-3.5 w-3.5" />
+              Product Management System
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
+              Manage your catalogue with
+              <span className="block bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 bg-clip-text text-transparent animate-gradient">
+                speed &amp; control
+              </span>
+            </h1>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">
+              Create, edit, and delete products. Upload images, update prices and details — all from a
+              single secure dashboard built.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Link
+                href="/login"
+                className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/30 hover:-translate-y-0.5"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Go to Dashboard
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-center gap-8 sm:gap-12 pt-6">
+              {STATS.map((s, i) => (
+                <div
+                  key={s.label}
+                  className="text-center animate-fade-in-up"
+                  style={{ animationDelay: `${150 + i * 100}ms` }}
+                >
+                  <p className="text-xl sm:text-2xl font-bold text-amber-400">{s.value}</p>
+                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        <RadialHub />
+
+        <footer className="text-center text-xs text-slate-500 py-6 border-t border-white/5">
+          Rua Sadiq Trading · Admin Portal
+        </footer>
+      </div>
     </div>
   )
 }

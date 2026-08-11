@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, Upload, Loader2, Trash2, Languages, ArrowLeft } from 'lucide-react'
+import { X, Upload, Loader2, Trash2, Languages } from 'lucide-react'
 import { createCategory, updateCategory, getImageUrl, getCategories } from '@/lib/api'
 import { translateEnToAr } from '@/lib/translate'
 import { Field } from '@/components/FormFields'
 import FullPageLoader from '@/components/FullPageLoader'
 import Toast from '@/components/Toast'
+import DashboardShell from '@/components/DashboardShell'
 
 export default function CategoryForm({ categoryId }) {
   const router = useRouter()
@@ -133,23 +134,15 @@ export default function CategoryForm({ categoryId }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <DashboardShell
+      active="categories"
+      title={isEdit ? 'Edit category' : 'Create category'}
+      subtitle={isEdit ? 'Update the details below' : 'Add a new catalogue category'}
+    >
       {saving && <FullPageLoader message={isEdit ? 'Updating category…' : 'Creating category…'} />}
       <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
 
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
-        <div className="max-w-xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
-          <button
-            onClick={() => router.push('/dashboard?tab=categories')}
-            className="p-2 rounded-lg border border-white/10 hover:bg-white/5"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <h1 className="text-sm font-bold">{isEdit ? 'Edit category' : 'Create category'}</h1>
-        </div>
-      </header>
-
-      <form onSubmit={handleSubmit} className="max-w-xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+      <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-4 animate-fade-in-up">
         {error && (
           <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
             {error}
@@ -265,6 +258,6 @@ export default function CategoryForm({ categoryId }) {
           </button>
         </div>
       </form>
-    </div>
+    </DashboardShell>
   )
 }
