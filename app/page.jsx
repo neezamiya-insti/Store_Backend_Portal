@@ -26,12 +26,16 @@ const STATS = [
   { value: '24/7', label: 'Secure access' },
 ]
 
+// Unified theme color across all segments (matches the site's amber accent).
+// Hover effects still work per-segment via --seg-color, they just all share this base color now.
+const THEME_COLOR = '#f5a524'
+
 const PETALS = [
-  { id: '01', icon: Package, title: 'Add Products', color: '#f5a524' },
-  { id: '02', icon: FolderOpen, title: 'Organize Categories', color: '#22c55e' },
-  { id: '03', icon: Layers, title: 'Manage Inventory', color: '#38bdf8' },
-  { id: '04', icon: Tag, title: 'Set Pricing', color: '#d946ef' },
-  { id: '05', icon: Send, title: 'Publish & Sync', color: '#f43f5e' },
+  { id: '01', icon: Package, title: 'Add Products', color: THEME_COLOR },
+  { id: '02', icon: FolderOpen, title: 'Organize Categories', color: THEME_COLOR },
+  { id: '03', icon: Layers, title: 'Manage Inventory', color: THEME_COLOR },
+  { id: '04', icon: Tag, title: 'Set Pricing', color: THEME_COLOR },
+  { id: '05', icon: Send, title: 'Publish & Sync', color: THEME_COLOR },
 ]
 
 const LEFT_CALLOUTS = [
@@ -105,6 +109,7 @@ function RingSegments({ hoveredIdx }) {
           </filter>
         ))}
       </defs>
+
       {PETALS.map((petal, i) => {
         const center = SEGMENT_ANGLES[i]
         const start = center - SEG_ANGLE / 2 + SEG_PAD
@@ -125,6 +130,21 @@ function RingSegments({ hoveredIdx }) {
               '--segment-color': petal.color,
               transition: 'stroke-opacity 0.3s ease, stroke-width 0.3s ease',
             }}
+          />
+        )
+      })}
+
+      {/* Static dots at the inner boundary of the ring (around center circle → each feature) */}
+      {SEGMENT_ANGLES.map((angle, i) => {
+        const pt = polarPoint(RING_INNER, angle)
+        return (
+          <circle
+            key={`inner-dot-${i}`}
+            cx={pt.x}
+            cy={pt.y}
+            r="2.6"
+            fill="#fcd34d"
+            className="static-dot"
           />
         )
       })}
@@ -214,58 +234,59 @@ function SideCallout({ item, side, index }) {
   )
 }
 
+// Curved connector: smooth bezier lines fanning out from a single point near the
+// ring to each of the 3 side items, instead of hard right angles.
 function SideConnector({ side }) {
   const isLeft = side === 'left'
-  const SVG_W = 97
-  const circleX = isLeft ? SVG_W : 0
-  const spineX = isLeft ? 48 : SVG_W - 48
+  const SVG_W = 90
+  const circleX = isLeft ? SVG_W - (-34) : -34
+  const spineX = isLeft ? 35 : SVG_W - 35
   const itemsX = isLeft ? 0 : SVG_W
-  const uid = side
 
-  const d = [
-    `M${circleX} 210 H${spineX}`,
-    `M${spineX} 40 V380`,
-    `M${spineX} 40 H${itemsX}`,
-    `M${spineX} 210 H${itemsX}`,
-    `M${spineX} 380 H${itemsX}`,
-  ].join(' ')
+  // y-positions of the 3 items (top / middle / bottom), matching the
+  // flex justify-between layout of the callout column.
+  const targetYs = [40, 210, 380]
 
-  const loopPath = `M${circleX} 210 L${spineX} 210 L${spineX} 40 L${itemsX} 40`
+  const paths = targetYs.map(
+    (y) => `M${circleX} 210 C ${spineX} 210, ${spineX} ${y}, ${itemsX} ${y}`
+  )
+
+  const staticDots = [
+    { cx: circleX, cy: 210 },
+    ...targetYs.map((y) => ({ cx: itemsX, cy: y })),
+  ]
 
   return (
-    <svg
-      className={`hidden lg:block absolute top-0 h-full pointer-events-none side-connector ${
-        isLeft ? 'right-0' : 'left-0'
-      }`}
-      style={{ width: SVG_W }}
-      viewBox={`0 0 ${SVG_W} 420`}
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <path id={`dp-loop-${uid}`} d={loopPath} fill="none" />
-      </defs>
+<svg
+  className={`hidden lg:block absolute top-0 h-full pointer-events-none side-connector z-10 ${
+    isLeft ? 'right-0' : 'left-0'
+  }`}
+  style={{ width: SVG_W, overflow: 'visible' }}
+  viewBox={`0 0 ${SVG_W} 420`}
+  preserveAspectRatio="none"
+>
+      {paths.map((d, i) => (
+        <path
+          key={i}
+          d={d}
+          fill="none"
+          stroke="#f5a524"
+          strokeOpacity="0.5"
+          strokeWidth="1.5"
+          className="connector-path"
+        />
+      ))}
 
-      <path
-        d={d}
-        fill="none"
-        stroke="#f5a524"
-        strokeOpacity="0.5"
-        strokeWidth="1.5"
-        className="connector-path"
-      />
-
-      <circle r="2.6" fill="#fcd34d" className="travel-dot">
-        <animateMotion
-          dur="3s"
-          begin="1.3s"
-          repeatCount="indefinite"
-          keyPoints="0;1"
-          keyTimes="0;1"
-          calcMode="linear"
-        >
-          <mpath href={`#dp-loop-${uid}`} />
-        </animateMotion>
-      </circle>
+      {staticDots.map((dot, i) => (
+        <circle
+          key={i}
+          cx={dot.cx}
+          cy={dot.cy}
+          r="2.6"
+          fill="#fcd34d"
+          className="static-dot"
+        />
+      ))}
     </svg>
   )
 }
@@ -298,7 +319,7 @@ function RadialHub() {
       <div className="max-w-6xl mx-auto">
         {/* Desktop */}
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-          <div className="relative h-[420px] flex flex-col justify-between pr-14">
+          <div className="relative h-[420px] flex flex-col justify-between pr-14 z-10">
             <SideConnector side="left" />
             {LEFT_CALLOUTS.map((item, i) => (
               <SideCallout key={item.title} item={item} side="left" index={i} />
@@ -318,7 +339,7 @@ function RadialHub() {
             </div>
           </div>
 
-          <div className="relative h-[420px] flex flex-col justify-between pl-14">
+          <div className="relative h-[420px] flex flex-col justify-between pl-14 z-10">
             <SideConnector side="right" />
             {RIGHT_CALLOUTS.map((item, i) => (
               <SideCallout key={item.title} item={item} side="right" index={i} />
@@ -371,23 +392,22 @@ function RadialHub() {
           <svg
             className="hidden lg:block absolute left-1/2 -translate-x-1/2 bottom-stem"
             style={{ top: -180 }}
-            width="480"
+            width="768"
             height="200"
-            viewBox="0 0 480 200"
+            viewBox="0 0 768 200"
           >
-            <defs>
-              <path id="dp-bottom-left" d="M240 0 L240 160 L80 160 L80 190" fill="none" />
-              <path id="dp-bottom-mid" d="M240 0 L240 190" fill="none" />
-              <path id="dp-bottom-right" d="M240 0 L240 160 L400 160 L400 190" fill="none" />
-            </defs>
-
+            {/*
+              x-positions (120 / 384 / 648) are the exact horizontal centers of the
+              3 trust-row columns inside the max-w-3xl (768px) mx-auto grid with gap-6,
+              so each dot lands directly above its icon.
+            */}
             <path
-              d="M240 0 V160
-                 M240 160 H80
-                 M240 160 H400
-                 M80 160 V190
-                 M240 160 V190
-                 M400 160 V190"
+              d="M384 0 V160
+                 M384 160 H120
+                 M384 160 H648
+                 M120 160 V190
+                 M384 160 V190
+                 M648 160 V190"
               fill="none"
               stroke="#f5a524"
               strokeOpacity="0.5"
@@ -395,19 +415,24 @@ function RadialHub() {
               className="connector-path"
             />
 
-            {['dp-bottom-left', 'dp-bottom-mid', 'dp-bottom-right'].map((id, i) => (
-              <circle key={id} r="2.6" fill="#fcd34d" className="travel-dot">
-                <animateMotion
-                  dur="2.8s"
-                  begin={`${2.2 + i * 0.9}s`}
-                  repeatCount="indefinite"
-                  keyPoints="0;1"
-                  keyTimes="0;1"
-                  calcMode="linear"
-                >
-                  <mpath href={`#${id}`} />
-                </animateMotion>
-              </circle>
+            {/* Static dots at every junction, aligned above each icon */}
+            {[
+              { cx: 384, cy: 0 },
+              { cx: 384, cy: 160 },
+              { cx: 120, cy: 160 },
+              { cx: 648, cy: 160 },
+              { cx: 120, cy: 190 },
+              { cx: 384, cy: 190 },
+              { cx: 648, cy: 190 },
+            ].map((dot, i) => (
+              <circle
+                key={i}
+                cx={dot.cx}
+                cy={dot.cy}
+                r="2.6"
+                fill="#fcd34d"
+                className="static-dot"
+              />
             ))}
           </svg>
 
@@ -434,7 +459,7 @@ function RadialHub() {
 
       {/* ========== ANIMATIONS ========== */}
       <style jsx>{`
-        /* Section entrance: slides up + fades when scrolled into view */
+        /* Section entrance */
         .feature-section {
           opacity: 0;
           transform: translateY(40px);
@@ -447,7 +472,7 @@ function RadialHub() {
           transform: translateY(0);
         }
 
-        /* Ring segments scale in from center */
+        /* Ring segments */
         .ring-segment {
           opacity: 0;
           transform-origin: 210px 210px;
@@ -464,7 +489,7 @@ function RadialHub() {
           transform: scale(1);
         }
 
-        /* Segment group hover: glow icon + number + label */
+        /* Segment hover */
         .segment-group {
           position: contents;
         }
@@ -488,7 +513,7 @@ function RadialHub() {
           filter: brightness(1.3);
         }
 
-        /* Number / icon / label pop animation */
+        /* Pop animation */
         .ring-pop {
           opacity: 0;
           animation: ringPop 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -503,7 +528,7 @@ function RadialHub() {
           100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
 
-        /* Icon circle base glow + smooth transition */
+        /* Icon glow */
         .ring-icon {
           transition:
             box-shadow 0.3s ease,
@@ -512,7 +537,7 @@ function RadialHub() {
           box-shadow: 0 0 8px var(--icon-color);
         }
 
-        /* Centre hub pulse */
+        /* Centre hub */
         .center-hub {
           box-shadow: 0 0 36px rgba(245, 165, 36, 0.28);
           transition:
@@ -533,7 +558,7 @@ function RadialHub() {
           50%       { box-shadow: 0 0 60px rgba(245, 165, 36, 0.48); }
         }
 
-        /* Side callouts slide up */
+        /* Side callouts */
         .side-callout {
           opacity: 0;
           transform: translateY(18px);
@@ -560,7 +585,7 @@ function RadialHub() {
             0 0 36px rgba(245, 165, 36, 0.25);
         }
 
-        /* Trust row slides up */
+        /* Trust row */
         .trust-item {
           opacity: 0;
           transform: translateY(16px);
@@ -587,7 +612,7 @@ function RadialHub() {
             0 0 36px rgba(245, 165, 36, 0.25);
         }
 
-        /* Connector lines draw in */
+        /* Connector lines */
         .connector-path {
           stroke-dasharray: 900;
           stroke-dashoffset: 900;
@@ -597,13 +622,13 @@ function RadialHub() {
           stroke-dashoffset: 0;
         }
 
-        /* Single traveling dot */
-        .travel-dot {
+        /* Static dots (no movement) */
+        .static-dot {
           filter: drop-shadow(0 0 4px #fcd34d) drop-shadow(0 0 9px rgba(245, 165, 36, 0.7));
           opacity: 0;
-          transition: opacity 0.4s ease 1.2s;
+          transition: opacity 0.4s ease 0.8s;
         }
-        .feature-section.is-visible .travel-dot {
+        .feature-section.is-visible .static-dot {
           opacity: 1;
         }
 
@@ -619,7 +644,7 @@ function RadialHub() {
           .ring-icon,
           .callout-icon,
           .trust-icon,
-          .travel-dot {
+          .static-dot {
             transition: none !important;
             animation: none !important;
             opacity: 1 !important;
@@ -637,17 +662,16 @@ function RadialHub() {
 export default function PortalLanding() {
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
-<div className="pointer-events-none fixed inset-0">
-  {/* only keep the subtle grid – no colored blobs */}
-  <div
-    className="absolute inset-0 opacity-[0.04]"
-    style={{
-      backgroundImage:
-        'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
-      backgroundSize: '56px 56px',
-    }}
-  />
-</div>
+      <div className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+          }}
+        />
+      </div>
 
       <div className="relative flex flex-col min-h-screen">
         <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
