@@ -56,6 +56,72 @@ const TRUST_ROW = [
   { icon: Clock, title: '24/7 Access', desc: 'Manage your catalogue anytime, anywhere.' },
 ]
 
+// ---------------------------------------------------------------------------
+// Mobile-only radial hub data. The mobile layout is a distinct visual (a full
+// closed 6-segment ring, followed by a connected two-column list, followed by
+// the trust row) rather than a shrunk copy of the desktop fan layout, so it
+// gets its own geometry + item set. It reuses the same icons/colors/copy.
+// ---------------------------------------------------------------------------
+const MOBILE_RING_ITEMS = [
+  { id: '01', icon: Package, title: 'Add Products', color: THEME_COLOR },
+  { id: '02', icon: Tag, title: 'Set Pricing', color: THEME_COLOR },
+  { id: '03', icon: Send, title: 'Publish & Sync', color: THEME_COLOR },
+  { id: '04', icon: Layers, title: 'Manage Inventory', color: THEME_COLOR },
+  { id: '05', icon: FolderOpen, title: 'Organize Categories', color: THEME_COLOR },
+  { id: '06', icon: Boxes, title: 'Multi-Platform', color: THEME_COLOR },
+]
+
+// Pairs rows to visually match the reference screenshot's two-column list.
+const MOBILE_ROWS = [
+  [LEFT_CALLOUTS[0], LEFT_CALLOUTS[1]],
+  [LEFT_CALLOUTS[2], RIGHT_CALLOUTS[1]],
+  [RIGHT_CALLOUTS[0], RIGHT_CALLOUTS[2]],
+]
+
+// Per-segment position overrides for the mobile ring — each item controls its own
+// number / icon / label placement independently (radius = distance from center,
+// angle = degrees clockwise from top). Edit any of these to nudge that one piece.
+// `width` on the label controls where its text wraps.
+const MOBILE_RING_POSITIONS = [
+  // 01 — Add Products (top)
+  { number: { r: 150, angle: 0 }, icon: { r: 120, angle: 0 }, label: { r: 90, angle: 0, width: 62 } },
+  // 02 — Set Pricing
+  { number: { r: 145, angle: 60 }, icon: { r: 123, angle: 60 }, label: { r: 118, angle: 76, width: 52 } },
+  // 03 — Publish & Sync
+  { number: { r: 145, angle: 100 }, icon: { r: 123, angle: 116 }, label: { r: 138, angle: 132, width: 52 } },
+  // 04 — Manage Inventory (bottom)
+  { number: { r: 150, angle: 180 }, icon: { r: 100, angle: 180 }, label: { r: 130, angle: 180, width: 62 } },
+  // 05 — Organize Categories
+  { number: { r: 145, angle: 258 }, icon: { r: 120, angle: 247 }, label: { r: 130, angle: 230, width: 52 } },
+  // 06 — Multi-Platform
+  { number: { r: 145, angle: 320 }, icon: { r: 123, angle: 310 }, label: { r: 115, angle: 290, width: 52 } },
+]
+
+const MOBILE_RING_CX = 170
+const MOBILE_RING_CY = 170
+const MOBILE_RING_INNER = 76
+const MOBILE_RING_OUTER = 164
+const MOBILE_SEG_ANGLE = 60
+const MOBILE_SEG_PAD = 2
+const MOBILE_SEGMENT_ANGLES = [0, 60, 120, 180, 240, 300]
+
+function mobilePolarPoint(r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180
+  return {
+    x: MOBILE_RING_CX + r * Math.sin(rad),
+    y: MOBILE_RING_CY - r * Math.cos(rad),
+  }
+}
+
+function mobileAnnulusSectorPath(rIn, rOut, startAngle, endAngle) {
+  const p1 = mobilePolarPoint(rOut, startAngle)
+  const p2 = mobilePolarPoint(rOut, endAngle)
+  const p3 = mobilePolarPoint(rIn, endAngle)
+  const p4 = mobilePolarPoint(rIn, startAngle)
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+  return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
+}
+
 const RING_CX = 210
 const RING_CY = 210
 const RING_INNER = 92
@@ -317,7 +383,7 @@ function RadialHub() {
   return (
     <section ref={sectionRef} className={`px-6 pb-16 feature-section ${visible ? 'is-visible' : ''}`}>
       <div className="max-w-6xl mx-auto">
-        {/* Desktop */}
+        {/* Desktop — unchanged */}
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center gap-6">
           <div className="relative h-[420px] flex flex-col justify-between pr-14 z-10">
             <SideConnector side="left" />
@@ -347,44 +413,159 @@ function RadialHub() {
           </div>
         </div>
 
-        {/* Mobile fallback */}
-        <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {PETALS.map((petal) => {
-            const Icon = petal.icon
-            return (
-              <div
-                key={petal.id}
-                className="rounded-2xl border p-5 bg-slate-900/50"
-                style={{ borderColor: `${petal.color}55` }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full border"
-                    style={{ borderColor: petal.color, backgroundColor: `${petal.color}1a` }}
+        {/* Mobile — full closed 6-segment ring, connected two-column list, trust row */}
+        <div className="lg:hidden">
+          <div className="relative mx-auto w-full max-w-[340px] aspect-square">
+            <svg viewBox="0 0 340 340" className="absolute inset-0 h-full w-full pointer-events-none">
+              <defs>
+                {MOBILE_RING_ITEMS.map((item, i) => (
+                  <linearGradient
+                    key={item.id}
+                    id={`mobile-ring-grad-${i}`}
+                    x1="0"
+                    y1="1"
+                    x2="0"
+                    y2="0"
+                    gradientUnits="objectBoundingBox"
                   >
-                    <Icon className="h-4 w-4" style={{ color: petal.color }} />
+                    <stop offset="0%" stopColor={item.color} stopOpacity="0.07" />
+                    <stop offset="100%" stopColor={item.color} stopOpacity="0.30" />
+                  </linearGradient>
+                ))}
+              </defs>
+
+              {MOBILE_RING_ITEMS.map((item, i) => {
+                const center = MOBILE_SEGMENT_ANGLES[i]
+                const start = center - MOBILE_SEG_ANGLE / 2 + MOBILE_SEG_PAD
+                const end = center + MOBILE_SEG_ANGLE / 2 - MOBILE_SEG_PAD
+                return (
+                  <path
+                    key={item.id}
+                    d={mobileAnnulusSectorPath(MOBILE_RING_INNER, MOBILE_RING_OUTER, start, end)}
+                    fill={`url(#mobile-ring-grad-${i})`}
+                    stroke={item.color}
+                    strokeOpacity={0.55}
+                    strokeWidth={1.5}
+                    className="ring-segment"
+                    style={{ animationDelay: `${i * 90}ms`, '--segment-color': item.color }}
+                  />
+                )
+              })}
+
+              {MOBILE_SEGMENT_ANGLES.map((angle, i) => {
+                const pt = mobilePolarPoint(MOBILE_RING_INNER, angle)
+                return (
+                  <circle
+                    key={`mobile-inner-dot-${i}`}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r="2.4"
+                    fill="#fcd34d"
+                    className="static-dot"
+                  />
+                )
+              })}
+            </svg>
+
+            {MOBILE_RING_ITEMS.map((item, i) => {
+              const Icon = item.icon
+              const pos = MOBILE_RING_POSITIONS[i]
+              const numberPt = mobilePolarPoint(pos.number.r, pos.number.angle)
+              const iconPt = mobilePolarPoint(pos.icon.r, pos.icon.angle)
+              const labelPt = mobilePolarPoint(pos.label.r, pos.label.angle)
+              const labelW = pos.label.width
+              const delay = `${180 + i * 80}ms`
+              return (
+                <div key={item.id} className="absolute inset-0 pointer-events-none">
+                  <span
+                    className="absolute -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold tracking-wider ring-pop segment-number"
+                    style={{
+                      left: `${(numberPt.x / 340) * 100}%`,
+                      top: `${(numberPt.y / 340) * 100}%`,
+                      color: item.color,
+                      animationDelay: delay,
+                    }}
+                  >
+                    {item.id}
+                  </span>
+
+                  <div
+                    className="ring-icon absolute -translate-x-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border ring-pop segment-icon"
+                    style={{
+                      left: `${(iconPt.x / 340) * 100}%`,
+                      top: `${(iconPt.y / 340) * 100}%`,
+                      borderColor: item.color,
+                      backgroundColor: `${item.color}18`,
+                      '--icon-color': item.color,
+                      animationDelay: delay,
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5" style={{ color: item.color }} />
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold tracking-wider" style={{ color: petal.color }}>
-                      {petal.id}
-                    </span>
-                    <p className="text-sm font-bold text-white">{petal.title}</p>
-                  </div>
+
+                  <span
+                    className="absolute -translate-x-1/2 -translate-y-1/2 text-center text-[9px] font-semibold leading-tight text-white ring-pop segment-label"
+                    style={{
+                      left: `${(labelPt.x / 340) * 100}%`,
+                      top: `${(labelPt.y / 340) * 100}%`,
+                      width: labelW,
+                      maxWidth: labelW,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      animationDelay: delay,
+                    }}
+                  >
+                    {item.title}
+                  </span>
                 </div>
+              )
+            })}
+
+            <div className="center-hub absolute left-1/2 top-1/2 h-[128px] w-[128px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-500/50 bg-slate-950 flex flex-col items-center justify-center gap-1 z-20">
+              <div className="center-icon flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/50 bg-amber-500/10">
+                <Package className="h-4 w-4 text-amber-400" />
               </div>
-            )
-          })}
-          {[...LEFT_CALLOUTS, ...RIGHT_CALLOUTS].map((item) => (
-            <div key={item.title} className="rounded-2xl border border-white/10 p-5 bg-slate-900/40 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-slate-900/70">
-                <item.icon className="h-4 w-4 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">{item.title}</p>
-                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
-              </div>
+              <span className="text-xs font-bold text-white">Your Catalogue</span>
+              <span className="text-[9px] text-slate-500 text-center px-3 leading-snug">
+                Full control. Real-time.
+              </span>
             </div>
-          ))}
+          </div>
+
+          {/* Stem connecting the ring down into the list */}
+          <div className="relative h-8 flex justify-center">
+            <div className="w-px h-full bg-gradient-to-b from-amber-500/60 to-amber-500/30 connector-path" />
+          </div>
+
+          {/* Connected two-column list */}
+          <div className="relative">
+            <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-px bg-gradient-to-b from-amber-500/50 via-amber-500/30 to-amber-500/50" />
+            <div className="space-y-4">
+              {MOBILE_ROWS.map((row, ri) => (
+                <div key={ri} className="relative grid grid-cols-2 gap-3">
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_2px_rgba(245,165,36,0.5)] z-10 static-dot" />
+                  {row.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <div
+                        key={item.title}
+                        className="side-callout flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/50 p-2.5"
+                        style={{ animationDelay: `${ri * 140}ms` }}
+                      >
+                        <div className="callout-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-slate-900/70">
+                          <Icon className="h-3.5 w-3.5 text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-white leading-tight">{item.title}</p>
+                          <p className="text-[9px] text-slate-400 leading-snug">{item.desc}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Trust row */}
@@ -436,7 +617,41 @@ function RadialHub() {
             ))}
           </svg>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto pt-2">
+          {/* Mobile trust connector: full-width so its 3 stems line up with the grid-cols-3 icons below */}
+          <svg
+            className="lg:hidden absolute left-0 right-0 w-full pointer-events-none"
+            style={{ top: -28, height: 32 }}
+            viewBox="0 0 300 32"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M150 0 V16
+                 M150 16 H50
+                 M150 16 H250
+                 M50 16 V32
+                 M150 16 V32
+                 M250 16 V32"
+              fill="none"
+              stroke="#f5a524"
+              strokeOpacity="0.5"
+              strokeWidth="1.5"
+              className="connector-path"
+              vectorEffect="non-scaling-stroke"
+            />
+            {[
+              { cx: 150, cy: 0 },
+              { cx: 150, cy: 16 },
+              { cx: 50, cy: 16 },
+              { cx: 250, cy: 16 },
+              { cx: 50, cy: 32 },
+              { cx: 150, cy: 32 },
+              { cx: 250, cy: 32 },
+            ].map((dot, i) => (
+              <circle key={i} cx={dot.cx} cy={dot.cy} r="2.4" fill="#fcd34d" className="static-dot" />
+            ))}
+          </svg>
+
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-3xl mx-auto pt-2">
             {TRUST_ROW.map((item, i) => {
               const Icon = item.icon
               return (
